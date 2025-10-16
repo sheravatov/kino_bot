@@ -404,11 +404,13 @@ def index():
     return "Kinobot ishlayapti! ✅"
 
 @app.route(f"/{TOKEN}", methods=["POST"])
-async def webhook():
-    """Telegram webhook qabul qilish"""
+def webhook():
     json_data = request.get_json()
     update = Update.de_json(json_data, application.bot)
-    await application.process_update(update)
+    
+    import asyncio
+    asyncio.run(application.process_update(update))  # async ni sync qilamiz
+    
     return "OK"
 
 # ===== BOT APPLICATION =====
@@ -441,12 +443,12 @@ if __name__ == "__main__":
     
     # Webhook o'rnatish
     import asyncio
+    asyncio.run(application.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}"))
+    logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}/{TOKEN}")
     
-    async def setup_webhook():
-        await application.bot.set_webhook(url=f"{WEBHOOK_URL}/{TOKEN}")
-        logger.info(f"Webhook o'rnatildi: {WEBHOOK_URL}/{TOKEN}")
-    
-    asyncio.run(setup_webhook())
+    # Flask serverni ishga tushirish
+    port = int(os.getenv("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
     
     # Flask serverni ishga tushirish
     port = int(os.getenv("PORT", 10000))
