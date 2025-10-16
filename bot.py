@@ -2,7 +2,7 @@ import os
 import logging
 from datetime import datetime, timedelta
 from flask import Flask, request
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -14,10 +14,22 @@ from telegram.ext import (
 import sqlite3
 from contextlib import contextmanager
 
+# .env fayldan o'qish (local uchun)
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
 # ===== KONFIGURATSIYA =====
 TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Render URL: https://your-app.onrender.com
-ADMIN_IDS = list(map(int, os.getenv("ADMIN_IDS", "").split(",")))  # Vergul bilan ajratilgan
+WEBHOOK_URL = os.getenv("WEBHOOK_URL", "http://localhost:5000")
+admin_ids_str = os.getenv("ADMIN_IDS", "")
+ADMIN_IDS = [int(x.strip()) for x in admin_ids_str.split(",") if x.strip().isdigit()]
+
+# Token tekshirish
+if not TOKEN:
+    raise ValueError("BOT_TOKEN o'rnatilmagan! .env faylda yoki environment variable sifatida o'rnating.")
 
 # ===== LOGGING =====
 logging.basicConfig(
@@ -115,7 +127,7 @@ def get_admin_ids():
     
     # Env dan va bazadan adminlarni birlashtirish
     all_admins = list(set(ADMIN_IDS + db_admins))
-    return all_admins
+    return all_admins if all_admins else ADMIN_IDS
 
 def is_admin(user_id: int) -> bool:
     """Foydalanuvchi admin ekanligini tekshirish"""
@@ -404,7 +416,7 @@ application = Application.builder().token(TOKEN).build()
 
 # Conversation handler - video yuklash
 conv_handler = ConversationHandler(
-    entry_points=[MessageHandler(filters.VIDEO & filters.User(user_id=get_admin_ids()), video_handler)],
+    entry_points=[MessageHandler(filters.VIDEO, video_handler)],
     states={
         WAITING_FOR_NUMBER: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_number)],
         WAITING_FOR_TITLE: [MessageHandler(filters.TEXT & ~filters.COMMAND, get_title)],
@@ -437,5 +449,5 @@ if __name__ == "__main__":
     asyncio.run(setup_webhook())
     
     # Flask serverni ishga tushirish
-    port = int(os.getenv("PORT", 5000))
+    port = int(os.getenv("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
